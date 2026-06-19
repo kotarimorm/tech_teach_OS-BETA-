@@ -109,10 +109,19 @@ ata_read_sector:
     mov dx, ATA_STATUS
     in al, dx
 
-    ; BSY (bit 7) must be 0, DRQ (bit 3) must be 1
-    test al, 0x88
+    ; Wait while BSY (bit 7) is set
+    test al, 0x80
     jnz .wait_ready
 
+    ; Abort on ERR (bit 0) or DF (bit 5)
+    test al, 0x21
+    jnz .disk_error
+
+    ; Wait until DRQ (bit 3) is set
+    test al, 0x08
+    jz .wait_ready
+
+.read_data:
     ; --------------------------------------------------------
     ; Read 256 words (512 bytes)
     ; IMPORTANT: must use ES:EDI for insw
@@ -122,5 +131,11 @@ ata_read_sector:
 
     rep insw
 
+    clc
+    popa
+    ret
+
+.disk_error:
+    stc
     popa
     ret
